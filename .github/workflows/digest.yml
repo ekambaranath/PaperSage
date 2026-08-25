@@ -1,16 +1,11 @@
 name: PaperSage Digest
 
-# Runs every day at 02:30 UTC == 08:00 IST, but a parity gate makes it fire
-# on alternate days only (even day-of-year). You can also trigger it manually.
+# Runs twice a week — Monday and Thursday at 02:30 UTC (08:00 IST).
+# You can also trigger it manually from the Actions tab.
 on:
   schedule:
-    - cron: "30 2 * * *"
+    - cron: "30 2 * * 1,4"
   workflow_dispatch:
-    inputs:
-      force:
-        description: "Run even if today is an off day"
-        required: false
-        default: "false"
 
 jobs:
   digest:
@@ -20,33 +15,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Alternate-day gate
-        id: gate
-        run: |
-          DOY=$(date -u +%j | sed 's/^0*//')
-          FORCE="${{ github.event.inputs.force }}"
-          if [ "$FORCE" = "true" ] || [ $((DOY % 2)) -eq 0 ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-            echo "Running today (day-of-year $DOY, force=$FORCE)."
-          else
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
-            echo "Off day (day-of-year $DOY is odd). Skipping."
-          fi
-
       - name: Set up Python
-        if: steps.gate.outputs.should_run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install dependencies
-        if: steps.gate.outputs.should_run == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Run PaperSage
-        if: steps.gate.outputs.should_run == 'true'
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
@@ -56,7 +35,9 @@ jobs:
           PAPERSAGE_TOPICS: ${{ vars.PAPERSAGE_TOPICS }}
           SUMMARIZER_MODEL: ${{ vars.SUMMARIZER_MODEL }}
           TRIAGE_MODEL: ${{ vars.TRIAGE_MODEL }}
-          LOOKBACK_DAYS: ${{ vars.LOOKBACK_DAYS }}
+          # Twice-weekly cadence leaves 3-4 day gaps; look back far enough to
+          # not miss papers between runs (override via repo variable if desired).
+          LOOKBACK_DAYS: ${{ vars.LOOKBACK_DAYS || '4' }}
           MAX_PAPERS: ${{ vars.MAX_PAPERS }}
           NCBI_API_KEY: ${{ secrets.NCBI_API_KEY }}
           SEMANTIC_SCHOLAR_API_KEY: ${{ secrets.SEMANTIC_SCHOLAR_API_KEY }}
