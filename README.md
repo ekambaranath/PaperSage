@@ -1,4 +1,4 @@
-# 📚 PaperSage
+# PaperSage
 
 **Your personal research assistant that never sleeps.**
 
